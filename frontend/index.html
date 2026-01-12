@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+<input type="file" id="videoInput" accept="video/mp4">
+<button onclick="upload()">Upload</button>
+<br><br>
+<video id="video" width="800" controls></video>
+
+<script>
+async function upload() { //take video input and send it to backend
+    const file = document.getElementById("videoInput").files[0]
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const res = await fetch("/upload", { method: "POST", body: formData })
+    const data = await res.json()
+    const videoId = data.video_id
+
+    while (true) { //poll hls
+        try {
+            const r = await fetch(`/hls_ready/${videoId}`)
+            const t = await r.text()
+            if (t === "ready") break
+        } catch(e) {}
+        await new Promise(r => setTimeout(r, 500))
+    }
+
+    const video = document.getElementById("video")
+    const src = `/hls/${videoId}/index.m3u8` //stream hls
+
+    if (Hls.isSupported()) {
+        const hls = new Hls({ lowLatencyMode: true })
+        hls.loadSource(src)
+        hls.attachMedia(video)
+    } else {
+        video.src = src
+    }
+}
+</script>
+</body>
+</html>
